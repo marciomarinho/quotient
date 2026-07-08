@@ -107,5 +107,31 @@
       "standardFlowEnabled": false,
       "secret": "operator-secret"
     }
+  ],
+  "users": [
+    {
+      "username": "service-account-tenant-acme",
+      "enabled": true,
+      "serviceAccountClientId": "tenant-acme",
+      "realmRoles": ["tenant-admin", "tenant-viewer"]
+    },
+    {
+      "username": "service-account-tenant-globex",
+      "enabled": true,
+      "serviceAccountClientId": "tenant-globex",
+      "realmRoles": ["tenant-admin", "tenant-viewer"]
+    },
+    {
+      "username": "service-account-tenant-initech",
+      "enabled": true,
+      "serviceAccountClientId": "tenant-initech",
+      "realmRoles": ["tenant-admin", "tenant-viewer"]
+    },
+    {
+      "username": "service-account-quotient-demo-operator",
+      "enabled": true,
+      "serviceAccountClientId": "quotient-demo-operator",
+      "realmRoles": ["platform-operator"]
+    }
   ]
 }

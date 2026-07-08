@@ -23,6 +23,16 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Validate JWT signatures against the realm JWKS (no per-request IdP
+          # call). Using jwk-set-uri (not issuer-uri) avoids the localhost-vs-
+          # in-container issuer mismatch: the token's iss is not checked, only the
+          # signature against Keycloak's published keys.
+          jwk-set-uri: ${QUOTIENT_JWKS_URI:http://localhost:8081/realms/quotient/protocol/openid-connect/certs}
+
   kafka:
     bootstrap-servers: localhost:29092
     template:

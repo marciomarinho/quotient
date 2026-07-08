@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,6 +35,9 @@ public class InvoiceController {
 
   @PostMapping
   @Operation(summary = "Generate the invoice for a tenant and billing period (YYYY-MM)")
+  @PreAuthorize(
+      "hasRole('platform-operator') or "
+          + "(hasRole('tenant-admin') and #tenantId.toString() == authentication.token.claims['tenant_id'])")
   public ResponseEntity<InvoiceResponse> generate(
       @PathVariable UUID tenantId, @RequestParam String period) {
     YearMonth month = YearMonth.parse(period);

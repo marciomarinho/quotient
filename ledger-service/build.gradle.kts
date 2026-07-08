@@ -14,6 +14,8 @@ dependencies {
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.security)
+    implementation(libs.spring.boot.starter.oauth2.resource.server)
     implementation(libs.spring.boot.starter.data.jdbc)
     implementation(libs.spring.boot.starter.jooq)
     implementation(libs.spring.kafka)
@@ -27,6 +29,7 @@ dependencies {
     testImplementation(libs.spring.kafka.test)
     testImplementation(libs.archunit.junit5)
     testImplementation(libs.jqwik)
+    testImplementation("org.springframework.security:spring-security-test")
 
     "integrationTestImplementation"(libs.spring.boot.testcontainers)
     "integrationTestImplementation"(libs.testcontainers.junit)

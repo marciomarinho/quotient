@@ -263,6 +263,7 @@ services:
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       QUOTIENT_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
+      QUOTIENT_JWKS_URI: http://keycloak:8080/realms/quotient/protocol/openid-connect/certs
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/quotient
       SPRING_FLYWAY_URL: jdbc:postgresql://postgres:5432/quotient
     ports:

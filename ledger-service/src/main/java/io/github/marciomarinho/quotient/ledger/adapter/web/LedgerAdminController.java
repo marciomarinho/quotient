@@ -4,6 +4,7 @@ import io.github.marciomarinho.quotient.ledger.application.LedgerVerifier;
 import io.github.marciomarinho.quotient.ledger.application.VerificationReport;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/v1/admin/ledger")
+@PreAuthorize("hasRole('platform-operator')")
 public class LedgerAdminController {
 
   private final LedgerVerifier verifier;

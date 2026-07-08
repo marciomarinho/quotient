@@ -15,17 +15,38 @@ import random
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
 GATEWAY = "http://localhost:18080"
 LEDGER = "http://localhost:8086"
+KEYCLOAK_TOKEN = "http://localhost:8081/realms/quotient/protocol/openid-connect/token"
 
 TENANTS = [
-    {"name": "Acme", "id": "11111111-1111-1111-1111-111111111111", "key": "qk_live_acme_primary"},
-    {"name": "Globex", "id": "22222222-2222-2222-2222-222222222222", "key": "qk_live_globex_primary"},
-    {"name": "Initech", "id": "33333333-3333-3333-3333-333333333333", "key": "qk_live_initech_primary"},
+    {"name": "Acme", "id": "11111111-1111-1111-1111-111111111111", "key": "qk_live_acme_primary",
+     "client": "tenant-acme", "secret": "acme-secret"},
+    {"name": "Globex", "id": "22222222-2222-2222-2222-222222222222", "key": "qk_live_globex_primary",
+     "client": "tenant-globex", "secret": "globex-secret"},
+    {"name": "Initech", "id": "33333333-3333-3333-3333-333333333333", "key": "qk_live_initech_primary",
+     "client": "tenant-initech", "secret": "initech-secret"},
 ]
+
+
+def get_token(client_id, secret):
+    """Acquire a Keycloak access token via client_credentials (proves the OAuth2 loop headlessly)."""
+    data = urllib.parse.urlencode(
+        {"grant_type": "client_credentials", "client_id": client_id, "client_secret": secret}
+    ).encode()
+    req = urllib.request.Request(
+        KEYCLOAK_TOKEN, data=data, headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST"
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.load(resp)["access_token"]
+
+
+def bearer(token):
+    return {"Authorization": f"Bearer {token}"}
 
 METERS = ["llm.tokens.input", "llm.tokens.output", "llm.requests"]
 EVENTS_PER_TENANT = 3400  # ~10k across three tenants
@@ -134,21 +155,27 @@ def main():
     heartbeat(25)
     time.sleep(12)
 
-    print(f"\n== 3. Generating {period} invoices ==")
+    print("\n== 3. Acquiring OAuth2 tokens (Keycloak client_credentials) ==")
+    tenant_tokens = {t["name"]: get_token(t["client"], t["secret"]) for t in TENANTS}
+    operator_token = get_token("quotient-demo-operator", "operator-secret")
+    print(f"  acquired {len(tenant_tokens)} tenant tokens + 1 platform-operator token")
+
+    print(f"\n== 4. Generating {period} invoices (tenant-admin tokens) ==")
     invoices = {}
     for tenant in TENANTS:
-        status, invoice = post(f"{LEDGER}/v1/tenants/{tenant['id']}/invoices?period={period}", {}, {})
+        auth = bearer(tenant_tokens[tenant["name"]])
+        _, invoice = post(f"{LEDGER}/v1/tenants/{tenant['id']}/invoices?period={period}", {}, auth)
         invoices[tenant["name"]] = invoice
         print(f"  {tenant['name']:8} net={money(invoice['netMinor'])}  tax={money(invoice['taxMinor'])}  total={money(invoice['totalMinor'])}  lines={len(invoice['lines'])}")
 
-    print("\n== 4. Ledger balances ==")
+    print("\n== 5. Ledger balances (tenant-viewer tokens; tenant from JWT claim) ==")
     for tenant in TENANTS:
-        _, balances = get(f"{LEDGER}/v1/ledger/balances", {"X-Tenant-Id": tenant["id"]})
+        _, balances = get(f"{LEDGER}/v1/ledger/balances", bearer(tenant_tokens[tenant["name"]]))
         summary = "  ".join(f"{b['accountType']}={money(b['balanceMinor'])}" for b in balances)
         print(f"  {tenant['name']:8} {summary}")
 
-    print("\n== 5. Assertions ==")
-    _, verify = post(f"{LEDGER}/v1/admin/ledger/verify", {}, {})
+    print("\n== 6. Assertions ==")
+    _, verify = post(f"{LEDGER}/v1/admin/ledger/verify", {}, bearer(operator_token))
     balanced = verify.get("allMatch", False)
     print(f"  duplicates rejected (not billed): {total_deduped} deduplicated  -> {'OK' if total_deduped > 0 else 'FAIL'}")
     print(f"  ledger balanced (debits == credits): {'OK' if balanced else 'FAIL'}")
@@ -162,7 +189,7 @@ def main():
 
 def print_trace_link():
     """Finale: surface one full pipeline trace in local Grafana/Tempo."""
-    print("\n== 6. Distributed trace ==")
+    print("\n== 7. Distributed trace ==")
     try:
         status, body = get(
             "http://localhost:3200/api/search?limit=1&tags="
