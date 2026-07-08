@@ -57,24 +57,25 @@ C4Container
 ```mermaid
 flowchart TB
     subgraph Ledger["ledger-service"]
-        CL[ChargeListener<br/>Kafka consumer]
-        PS[LedgerPostingService<br/>retry-on-40001]
-        TW[TransactionalLedgerWriter<br/>SERIALIZABLE]
-        DEP[DoubleEntryPosting<br/>domain]
-        REPO[JdbcLedgerRepository<br/>RLS-bound]
-        INV[InvoiceService]
-        IREPO[JdbcInvoiceRepository]
-        RELAY[OutboxRelay<br/>@Scheduled]
-        QC[LedgerQueryController<br/>OAuth2 + @PreAuthorize]
-        SEC[JwtTenantContextFilter<br/>tenant_id claim -> TenantContext]
+        CL["ChargeListener - Kafka consumer"]
+        PS["LedgerPostingService - retry on 40001"]
+        TW["TransactionalLedgerWriter - SERIALIZABLE"]
+        DEP["DoubleEntryPosting - domain"]
+        REPO["JdbcLedgerRepository - RLS-bound"]
+        INV["InvoiceService"]
+        IREPO["JdbcInvoiceRepository"]
+        RELAY["OutboxRelay - scheduled"]
+        QC["LedgerQueryController - OAuth2 and PreAuthorize"]
+        QSVC["LedgerQueryService"]
+        SEC["JwtTenantContextFilter - tenant_id claim into TenantContext"]
     end
-    KAFKA[(Kafka<br/>billing.charges.v1)] --> CL --> PS --> TW
+    KAFKA[("Kafka - billing.charges.v1")] --> CL --> PS --> TW
     DEP --> PS
-    TW --> REPO --> PG[(PostgreSQL + RLS)]
-    SEC --> QC --> QSVC[LedgerQueryService] --> REPO
+    TW --> REPO --> PG[("PostgreSQL - RLS")]
+    SEC --> QC --> QSVC --> REPO
     INV --> IREPO --> PG
     RELAY --> PG
-    RELAY --> OUT[(Kafka<br/>invoice.created.v1)]
+    RELAY --> OUT[("Kafka - invoice.created.v1")]
 ```
 
 ## Sequence — event ingestion (happy path)
@@ -86,14 +87,14 @@ sequenceDiagram
     participant G as ingest-gateway
     participant R as Redis
     participant K as Kafka
-    C->>G: POST /v1/usage/events (Bearer qk_live_...)
-    G->>G: verify API key (Argon2id, cached) -> TenantId
-    G->>G: validate (meter exists, occurredAt <= now+5m)
-    G->>R: SET idem:<tenant>:<key> NX EX 86400
-    R-->>G: OK (first time)
-    G->>K: publish usage.events.v1 (key=tenantId, acks=all)
+    C->>G: POST usage event with API key
+    G->>G: verify API key with Argon2id, resolve TenantId
+    G->>G: validate meter exists and timestamp not in the future
+    G->>R: SET idempotency key NX EX 86400
+    R-->>G: OK, first time seen
+    G->>K: publish usage.events.v1, key is tenantId, acks all
     K-->>G: ack
-    G-->>C: 202 Accepted {deduplicated:false}
+    G-->>C: 202 Accepted, deduplicated false
 ```
 
 ## Sequence — duplicate event rejection
@@ -105,11 +106,11 @@ sequenceDiagram
     participant G as ingest-gateway
     participant R as Redis
     participant K as Kafka
-    C->>G: POST /v1/usage/events (same idempotencyKey)
-    G->>R: SET idem:<tenant>:<key> NX EX 86400
-    R-->>G: nil (key already present)
-    Note over G,K: no publish — event already seen
-    G-->>C: 202 Accepted {deduplicated:true}
+    C->>G: POST usage event with same idempotency key
+    G->>R: SET idempotency key NX EX 86400
+    R-->>G: nil, key already present
+    Note over G,K: no publish, event already seen
+    G-->>C: 202 Accepted, deduplicated true
 ```
 
 ## Sequence — window close → rating → ledger posting
@@ -122,16 +123,16 @@ sequenceDiagram
     participant RT as rating-engine
     participant L as ledger-service
     participant P as PostgreSQL
-    A->>A: window [t, t+1m) closes (grace 30s), suppress emits
-    A->>K: usage.aggregates.v1 (MeterReading)
+    A->>A: window closes after grace, suppress emits the final reading
+    A->>K: publish usage.aggregates.v1 MeterReading
     K->>RT: consume MeterReading
-    RT->>RT: apply tenant plan (tiered/volume/flat), record planVersion
-    RT->>K: billing.charges.v1 (Charge, deterministic id)
+    RT->>RT: apply tenant plan, record planVersion
+    RT->>K: publish billing.charges.v1 Charge with deterministic id
     K->>L: consume Charge
-    L->>P: SET LOCAL app.tenant_id; INSERT transaction ON CONFLICT DO NOTHING
-    L->>P: INSERT balanced entries (DEBIT RECEIVABLE / CREDIT REVENUE + TAX)
-    Note over P: deferred trigger asserts debits == credits at COMMIT
-    L->>P: record billed_charge (for invoicing)
+    L->>P: SET LOCAL app.tenant_id, insert transaction ON CONFLICT DO NOTHING
+    L->>P: insert balanced entries DEBIT RECEIVABLE, CREDIT REVENUE and TAX
+    Note over P: deferred trigger asserts debits equal credits at COMMIT
+    L->>P: record billed_charge for invoicing
 ```
 
 For invoice generation and the outbox flow, see [LEDGER_DESIGN.md](LEDGER_DESIGN.md).

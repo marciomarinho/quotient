@@ -172,32 +172,32 @@ sequenceDiagram
     autonumber
     participant Agg as Meter Aggregator
     participant Rate as Rating Engine
-    participant K as Kafka (billing.charges.v1)
+    participant K as Kafka billing.charges.v1
     participant Led as Ledger Service
     participant DB as PostgreSQL
     participant OB as Outbox Relay
-    participant Bus as Kafka (invoice.created)
+    participant Bus as Kafka invoice.created
 
-    Agg->>Agg: window close -> final reading
+    Agg->>Agg: window close, emit final reading
     Agg->>Rate: usage.aggregates.v1
-    Rate->>Rate: rate reading x planVersion -> Charge
-    Rate->>Rate: compute deterministic txId (uuidV5)
+    Rate->>Rate: rate the reading at planVersion, produce a Charge
+    Rate->>Rate: compute deterministic txId as uuidV5
     Rate->>K: publish Charge
 
     Led->>K: consume Charge
-    Led->>Led: build balanced PostingPlan (Layer 2)
-    Led->>DB: BEGIN SERIALIZABLE; SET LOCAL app.tenant_id
+    Led->>Led: build balanced PostingPlan, Layer 2
+    Led->>DB: BEGIN SERIALIZABLE, SET LOCAL app.tenant_id
     Led->>DB: INSERT ledger_transaction ON CONFLICT DO NOTHING
-    Led->>DB: INSERT >=2 ledger_entry (RECEIVABLE / REVENUE / TAX)
+    Led->>DB: INSERT two or more ledger_entry rows for RECEIVABLE REVENUE TAX
     Led->>DB: INSERT billed_charge
-    DB-->>DB: assert_transaction_balanced fires at COMMIT (Layer 1)
-    DB-->>Led: COMMIT ok (or 40001 -> retry)
+    DB-->>DB: assert_transaction_balanced fires at COMMIT, Layer 1
+    DB-->>Led: COMMIT ok, or 40001 then retry
 
-    Note over Led,DB: replay of same Charge -> ON CONFLICT no-op (Layer 3)
+    Note over Led,DB: replay of same Charge hits ON CONFLICT no-op, Layer 3
 
-    Led->>DB: POST /invoices?period -> BEGIN SERIALIZABLE
-    Led->>DB: aggregate uninvoiced billed_charge -> invoice + lines
-    Led->>DB: link charges; INSERT outbox(invoice.created)
+    Led->>DB: generate invoice, BEGIN SERIALIZABLE
+    Led->>DB: aggregate uninvoiced billed_charge into invoice and lines
+    Led->>DB: link charges and INSERT outbox invoice.created
     DB-->>Led: COMMIT
     OB->>DB: poll outbox
     OB->>Bus: publish invoice.created

@@ -96,15 +96,15 @@ per-customer running total.
 
 ```mermaid
 flowchart LR
-    Client([API Client]) -->|POST /usage| API[HTTP API]
-    subgraph DB[Relational Database]
-        UsageTable[(usage rows)]
-        Counter[(customer_totals<br/>running total)]
+    Client(["API Client"]) -->|"POST usage"| API["HTTP API"]
+    subgraph DB["Relational Database"]
+        UsageTable[("usage rows")]
+        Counter[("customer_totals - running total")]
     end
-    API -->|INSERT event| UsageTable
-    API -->|UPDATE total += amount| Counter
-    Counter -->|SELECT total| Invoice[Monthly Invoice Job]
-    UsageTable -->|SELECT SUM| Invoice
+    API -->|"INSERT event"| UsageTable
+    API -->|"UPDATE running total"| Counter
+    Counter -->|"SELECT total"| Invoice["Monthly Invoice Job"]
+    UsageTable -->|"SELECT SUM"| Invoice
 ```
 
 This works in a demo and collapses in production for several compounding

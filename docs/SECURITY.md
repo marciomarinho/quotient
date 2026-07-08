@@ -8,17 +8,17 @@ converge on one tenant-context chain. This is a deliberate design decision
 
 ```mermaid
 flowchart TD
-    subgraph Ingestion["Ingestion — machine-to-machine, high volume"]
-        A[SDK / client] -->|Authorization: Bearer qk_live_...| B[ingest-gateway]
-        B -->|Argon2id verify, Caffeine cache| C[TenantId from API key]
+    subgraph Ingestion["Ingestion - machine to machine, high volume"]
+        A["SDK or client"] -->|"Authorization Bearer qk_live key"| B["ingest-gateway"]
+        B -->|"Argon2id verify, Caffeine cache"| C["TenantId from API key"]
     end
-    subgraph Query["Query / admin — humans & services"]
-        D[client] -->|Authorization: Bearer JWT| E[ledger-service<br/>OAuth2 Resource Server]
-        E -->|verify signature vs Keycloak JWKS| F[TenantId from tenant_id claim]
+    subgraph Query["Query and admin - humans and services"]
+        D["client"] -->|"Authorization Bearer JWT"| E["ledger-service - OAuth2 Resource Server"]
+        E -->|"verify signature vs Keycloak JWKS"| F["TenantId from tenant_id claim"]
     end
-    C --> G[TenantContext]
-    F --> G[TenantContext]
-    G -->|SET LOCAL app.tenant_id| H[(PostgreSQL + RLS)]
+    C --> G["TenantContext"]
+    F --> G
+    G -->|"SET LOCAL app.tenant_id"| H[("PostgreSQL - RLS")]
 ```
 
 ### 1. Ingestion path — API keys

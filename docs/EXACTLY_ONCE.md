@@ -10,9 +10,9 @@ choosing the right guarantee at each hop and composing them.
 
 ```mermaid
 flowchart TB
-    gw[ingest gateway] -->|usage.events.v1| agg[meter-aggregator<br/>Kafka Streams]
-    agg -->|usage.aggregates.v1| rate[rating-engine]
-    rate -->|billing.charges.v1| led[ledger-service<br/>PostgreSQL double-entry ledger]
+    gw["ingest gateway"] -->|usage.events.v1| agg["meter-aggregator - Kafka Streams"]
+    agg -->|usage.aggregates.v1| rate["rating-engine"]
+    rate -->|billing.charges.v1| led["ledger-service - PostgreSQL double-entry ledger"]
 ```
 
 Each hop is independently safe under retries. The end-to-end property —
@@ -136,30 +136,30 @@ sequenceDiagram
     participant GW as Ingest Gateway
     participant R as Redis
     participant KE as Kafka usage.events.v1
-    participant AGG as Meter Aggregator (Streams)
+    participant AGG as Meter Aggregator Streams
     participant KA as Kafka usage.aggregates.v1
     participant RT as Rating Engine
     participant KC as Kafka billing.charges.v1
     participant LED as Ledger Service
 
-    C->>GW: POST event (idempotencyKey=k1)
-    GW->>R: SET k1 1 NX EX 86400
-    R-->>GW: OK (reserved)
-    GW->>KE: publish event (await ack)
+    C->>GW: POST event with idempotencyKey k1
+    GW->>R: SET k1 NX EX 86400
+    R-->>GW: OK, reserved
+    GW->>KE: publish event and await ack
     KE-->>GW: ack
-    GW-->>C: 202 { accepted: true }
+    GW-->>C: 202 accepted
 
-    AGG->>KE: consume (EOS v2 tx begin)
-    AGG->>AGG: tumbling 1m + 30s grace; suppress(untilWindowCloses)
-    AGG->>KA: emit one final reading (tx commit)
+    AGG->>KE: consume within an EOS v2 transaction
+    AGG->>AGG: tumbling window 1m with 30s grace, suppress until window closes
+    AGG->>KA: emit one final reading, transaction commit
 
     RT->>KA: consume reading
-    RT->>RT: rate x planVersion -> Charge + deterministic txId
-    RT->>KC: publish Charge (await ack, then commit offset)
+    RT->>RT: rate at planVersion, produce Charge with deterministic txId
+    RT->>KC: publish Charge, await ack, then commit offset
 
     LED->>KC: consume Charge
     LED->>LED: INSERT ledger_transaction ON CONFLICT DO NOTHING
-    LED->>LED: post balanced entries + billed_charge
+    LED->>LED: post balanced entries and billed_charge
 ```
 
 ### Duplicate-event path
@@ -172,12 +172,12 @@ sequenceDiagram
     participant R as Redis
     participant KE as Kafka usage.events.v1
 
-    Note over C: retry of the same event (idempotencyKey=k1)
-    C->>GW: POST event (idempotencyKey=k1)
-    GW->>R: SET k1 1 NX EX 86400
-    R-->>GW: nil (key already exists)
-    GW-->>C: 202 { deduplicated: true }
-    Note over GW,KE: nothing published — no aggregate,<br/>no charge, no ledger post
+    Note over C: retry of the same event with idempotencyKey k1
+    C->>GW: POST event with idempotencyKey k1
+    GW->>R: SET k1 NX EX 86400
+    R-->>GW: nil, key already exists
+    GW-->>C: 202 deduplicated
+    Note over GW,KE: nothing published, no aggregate, no charge, no ledger post
 ```
 
 The duplicate is stopped at the very first hop: because `k1` is still present
