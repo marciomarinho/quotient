@@ -34,3 +34,4 @@ loadtest/results/*.png
 # jqwik failure-sample database
 .jqwik-database
 **/.jqwik-database
+loadtest/results/*.txt

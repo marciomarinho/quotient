@@ -211,6 +211,12 @@ services:
       QUOTIENT_INGEST_RATE_LIMIT_REFILL_TOKENS: "50000"
     ports:
       - "18080:8080"
+    # Identical resource envelope to the reactive gateway for a fair benchmark.
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1g
 
   ingest-gateway-reactive:
     profiles: ["apps"]
@@ -228,6 +234,11 @@ services:
       QUOTIENT_INGEST_RATE_LIMIT_REFILL_TOKENS: "50000"
     ports:
       - "18082:8082"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1g
 
   meter-aggregator:
     profiles: ["apps"]
