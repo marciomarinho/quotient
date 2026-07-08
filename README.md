@@ -29,27 +29,27 @@ ledger balances — using real Keycloak OAuth2 tokens.
 
 ```mermaid
 flowchart LR
-    client([API client / SDK]):::ext
-    operator([Operator / admin]):::ext
+    client(["API client or SDK"]):::ext
+    operator(["Operator or admin"]):::ext
 
-    client -->|"usage events<br/>(HTTP + API key)"| gw
-    operator -->|"queries · invoices<br/>(OAuth2 JWT)"| ledger
+    client -->|"usage events, HTTP and API key"| gw
+    operator -->|"queries and invoices, OAuth2 JWT"| ledger
 
-    subgraph pipeline [ ]
+    subgraph pipeline ["core pipeline"]
         direction LR
-        gw["<b>ingest-gateway</b><br/>WebFlux · virtual threads<br/>auth · dedup · rate-limit"]
-        agg["<b>meter-aggregator</b><br/>Kafka Streams<br/>windows · exactly-once"]
-        rate["<b>rating-engine</b><br/>tiered · volume · flat"]
-        ledger["<b>ledger-service</b><br/>double-entry · RLS<br/>invoicing · query API"]
+        gw["ingest-gateway<br/>WebFlux and virtual threads<br/>auth, dedup, rate-limit"]
+        agg["meter-aggregator<br/>Kafka Streams<br/>windows, exactly-once"]
+        rate["rating-engine<br/>tiered, volume, flat"]
+        ledger["ledger-service<br/>double-entry, RLS<br/>invoicing, query API"]
     end
 
-    gw -->|"usage.events.v1<br/>key = tenantId"| agg
-    agg -->|usage.aggregates.v1| rate
-    rate -->|billing.charges.v1| ledger
+    gw -->|"usage.events.v1, key is tenantId"| agg
+    agg -->|"usage.aggregates.v1"| rate
+    rate -->|"billing.charges.v1"| ledger
 
-    redis[(Redis<br/>idempotency)]:::infra
-    pg[(PostgreSQL<br/>RLS)]:::infra
-    kc[(Keycloak<br/>OIDC)]:::infra
+    redis[("Redis<br/>idempotency")]:::infra
+    pg[("PostgreSQL<br/>RLS")]:::infra
+    kc[("Keycloak<br/>OIDC")]:::infra
 
     gw -.-> redis
     ledger -.-> pg
