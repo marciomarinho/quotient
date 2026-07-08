@@ -27,14 +27,41 @@ ledger balances — using real Keycloak OAuth2 tokens.
 
 ## Architecture
 
-```
-usage events (HTTP) ─▶ ingest-gateway ─▶ Kafka ─▶ meter-aggregator ─▶ rating-engine ─▶ ledger-service
-  (token telemetry)     reactive |            usage.events.v1   (Kafka Streams)   (pricing)   (double-entry
-                        vthreads               key=tenantId      EOS + windows                  ledger + RLS
-                                                                                                + invoicing)
+```mermaid
+flowchart LR
+    client([API client / SDK]):::ext
+    operator([Operator / admin]):::ext
+
+    client -->|"usage events<br/>(HTTP + API key)"| gw
+    operator -->|"queries · invoices<br/>(OAuth2 JWT)"| ledger
+
+    subgraph pipeline [ ]
+        direction LR
+        gw["<b>ingest-gateway</b><br/>WebFlux · virtual threads<br/>auth · dedup · rate-limit"]
+        agg["<b>meter-aggregator</b><br/>Kafka Streams<br/>windows · exactly-once"]
+        rate["<b>rating-engine</b><br/>tiered · volume · flat"]
+        ledger["<b>ledger-service</b><br/>double-entry · RLS<br/>invoicing · query API"]
+    end
+
+    gw -->|"usage.events.v1<br/>key = tenantId"| agg
+    agg -->|usage.aggregates.v1| rate
+    rate -->|billing.charges.v1| ledger
+
+    redis[(Redis<br/>idempotency)]:::infra
+    pg[(PostgreSQL<br/>RLS)]:::infra
+    kc[(Keycloak<br/>OIDC)]:::infra
+
+    gw -.-> redis
+    ledger -.-> pg
+    ledger -.-> kc
+
+    classDef ext fill:#e8eef7,stroke:#4a6fa5,color:#1a2a3a;
+    classDef infra fill:#f2ecdc,stroke:#a5894a,color:#3a2f1a;
 ```
 
-Full C4 + sequence diagrams: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+The arrows between services are Kafka topics (versioned, keyed by `tenantId`).
+Full C4 (context / container / component) + sequence diagrams:
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Quickstart (90 seconds)
 

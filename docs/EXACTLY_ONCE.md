@@ -8,17 +8,11 @@ choosing the right guarantee at each hop and composing them.
 
 ## 1. The chain
 
-```
-ingest gateway
-      │  Kafka: usage.events.v1
-      ▼
-meter-aggregator  (Kafka Streams)
-      │  Kafka: usage.aggregates.v1
-      ▼
-rating-engine
-      │  Kafka: billing.charges.v1
-      ▼
-ledger-service   (PostgreSQL double-entry ledger)
+```mermaid
+flowchart TB
+    gw[ingest gateway] -->|usage.events.v1| agg[meter-aggregator<br/>Kafka Streams]
+    agg -->|usage.aggregates.v1| rate[rating-engine]
+    rate -->|billing.charges.v1| led[ledger-service<br/>PostgreSQL double-entry ledger]
 ```
 
 Each hop is independently safe under retries. The end-to-end property —
