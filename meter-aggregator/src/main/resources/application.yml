@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: meter-aggregator
+
+  kafka:
+    bootstrap-servers: localhost:29092
+    streams:
+      application-id: quotient-meter-aggregator
+      properties:
+        processing.guarantee: exactly_once_v2
+        # EOS commits frequently; keep the interval small so windowed results
+        # are emitted promptly after close.
+        commit.interval.ms: 1000
+        num.standby.replicas: 0
+        # RocksDB-backed state stores (default); replication for changelogs.
+        replication.factor: 1
+        state.dir: ${java.io.tmpdir}/quotient-kafka-streams
+
+server:
+  port: 8083
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+  metrics:
+    tags:
+      application: meter-aggregator
+
+quotient:
+  aggregator:
+    input-topic: usage.events.v1
+    output-topic: usage.aggregates.v1
+    window-size: 1m
+    grace: 30s
+    # Meters not listed default to SUM.
+    meters:
+      llm.requests: COUNT
