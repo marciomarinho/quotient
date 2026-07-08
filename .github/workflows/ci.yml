@@ -51,3 +51,39 @@ jobs:
           name: jacoco-aggregate-report
           path: build/reports/jacoco/testCodeCoverageReport/
           if-no-files-found: ignore
+
+  # GraalVM native-image compilation is heavier than the JVM build, so it runs as
+  # a separate job on GraalVM 25. It proves the rating-engine stays native-ready
+  # (Spring AOT + reachability metadata). See docs/adr/0012-graalvm-native-images.md.
+  native-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up GraalVM 25
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: "25"
+          distribution: graalvm-community
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile rating-engine native image
+        run: ./gradlew :rating-engine:nativeCompile
+
+      - name: Smoke-check the native binary starts
+        run: |
+          ./rating-engine/build/native/nativeCompile/rating-engine \
+            --spring.kafka.bootstrap-servers=localhost:9092 > native.log 2>&1 &
+          PID=$!
+          # The context boots without a broker; wait for the "Started" line.
+          for i in $(seq 1 30); do
+            grep -q "Started RatingEngineApplication" native.log && break
+            sleep 1
+          done
+          kill "$PID" 2>/dev/null || true
+          echo "----- native startup log -----"
+          grep "Started RatingEngineApplication" native.log
+          grep -q "Started RatingEngineApplication" native.log

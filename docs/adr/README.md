@@ -17,3 +17,4 @@ the trade-off accepted).
 | [0009](0009-tracing-bridge-vs-agent.md) | Micrometer Tracing bridge over the OTel agent |
 | [0010](0010-single-realm-with-tenant-claim.md) | Single Keycloak realm + `tenant_id` claim |
 | [0011](0011-webflux-vs-virtual-threads-outcome.md) | Keep both gateways; when each model wins |
+| [0012](0012-graalvm-native-images.md) | GraalVM native images, starting with the rating-engine |

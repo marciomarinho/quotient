@@ -6,6 +6,19 @@ plugins {
     id("quotient.java-conventions")
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
+    // GraalVM native image: `./gradlew :rating-engine:nativeCompile` produces a
+    // standalone native executable (Spring AOT + native-image). See ADR-0012.
+    alias(libs.plugins.graalvm.native)
+}
+
+// The reachability-metadata repository (kafka-clients, Jackson, Spring) is on by
+// default; our own event records get reflection hints via @RegisterReflectionForBinding.
+graalvmNative {
+    binaries {
+        named("main") {
+            imageName.set("rating-engine")
+        }
+    }
 }
 
 dependencies {

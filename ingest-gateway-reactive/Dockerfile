@@ -4,7 +4,7 @@
 FROM eclipse-temurin:25-jre
 WORKDIR /app
 RUN groupadd --system quotient && useradd --system --gid quotient --uid 1001 quotient
-COPY build/libs/*.jar app.jar
+COPY build/libs/*-SNAPSHOT.jar app.jar
 USER quotient
 EXPOSE 8082
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]

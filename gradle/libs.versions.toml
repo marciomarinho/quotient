@@ -9,6 +9,7 @@ java = "25"
 springBoot = "3.5.4"
 springDependencyManagement = "1.1.7"
 spotless = "7.2.1"
+graalvmNative = "0.10.6"
 errorprone = "2.36.0"
 errorpronePlugin = "4.1.0"
 checkstyle = "10.21.1"
@@ -92,5 +93,6 @@ awaitility = { module = "org.awaitility:awaitility" }
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
+graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvmNative" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 errorprone = { id = "net.ltgt.errorprone", version.ref = "errorpronePlugin" }

@@ -83,6 +83,22 @@ make test      # unit tests
 | Keycloak | http://localhost:8081 | `admin` / `admin`, realm `quotient` |
 | Toxiproxy | http://localhost:8474 | benchmark fault injection |
 
+### Native images (GraalVM)
+
+Services can also be compiled ahead-of-time to standalone native executables with
+GraalVM native-image (Spring AOT). The `rating-engine` is native-ready today:
+
+```bash
+make native-rating   # ./gradlew :rating-engine:nativeCompile   (needs GraalVM; ~2 min)
+./rating-engine/build/native/nativeCompile/rating-engine
+```
+
+The native binary starts in **~0.05 s** (vs ~1.5–2.5 s on the JVM) with a lower,
+flatter memory floor — ideal for scale-to-zero and dense replicas. Native is
+additive: `make build` still produces the JVM bootJar. Rationale, the closed-world
+trade-off, and per-service difficulty are in
+[ADR-0012](docs/adr/0012-graalvm-native-images.md).
+
 ## Repository layout
 
 ```
@@ -108,6 +124,8 @@ docs/                     PROBLEM, ARCHITECTURE, MULTI_TENANCY, SECURITY, LEDGER
   partitioning → PostgreSQL Row-Level Security.
 - **Honest performance engineering:** reproducible k6 benchmark of reactive vs
   virtual-threads gateways with real local numbers.
+- **AOT-ready:** the rating-engine compiles to a GraalVM native image that starts
+  in ~0.05 s, with a documented path for the remaining services ([ADR-0012](docs/adr/0012-graalvm-native-images.md)).
 
 ## Documentation
 

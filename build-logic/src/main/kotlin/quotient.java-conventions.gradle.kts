@@ -97,9 +97,14 @@ tasks.withType<Test>().configureEach {
 
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
+    options.compilerArgs.add("-parameters")
+    // Strict lint on our own code, but NOT on Spring AOT-generated sources
+    // (compileAotJava / compileAotTestJava), which we do not control.
     // -serial: we never Java-serialize our exceptions, so serialVersionUID noise
     // is not worth -Werror failing the build.
-    options.compilerArgs.addAll(listOf("-parameters", "-Xlint:all,-processing,-serial", "-Werror"))
+    if (!name.contains("Aot", ignoreCase = true)) {
+        options.compilerArgs.addAll(listOf("-Xlint:all,-processing,-serial", "-Werror"))
+    }
 }
 
 dependencies {
@@ -118,11 +123,15 @@ jacoco {
     toolVersion = jacocoVersion
 }
 
-// For Spring Boot application modules, produce only the executable bootJar (not
-// the extra "-plain" library jar), so Dockerfiles can COPY build/libs/*.jar
-// unambiguously.
+// For Spring Boot application modules we keep the standard `jar` task ENABLED
+// (it emits the "-plain" library jar). The GraalVM native-image build resolves
+// the module's own classes from that plain jar, so disabling it breaks
+// `nativeCompile` (the app's main class drops off the native classpath). To keep
+// Docker unambiguous, the plain jar carries the `-plain` classifier by default,
+// and the Dockerfiles COPY `build/libs/*-SNAPSHOT.jar` — a glob that matches only
+// the executable bootJar, never the `-SNAPSHOT-plain.jar`. The (unused) sources
+// jar is still disabled to avoid clutter.
 plugins.withId("org.springframework.boot") {
-    tasks.named<Jar>("jar") { enabled = false }
     tasks.matching { it.name == "sourcesJar" }.configureEach { enabled = false }
 
     // Every service gets distributed tracing wired the same way: Micrometer
@@ -174,3 +183,10 @@ tasks.withType<Checkstyle>().configureEach {
         html.required = true
     }
 }
+
+// The GraalVM native plugin adds `aot` / `aotTest` source sets of Spring-generated
+// code (e.g. `Foo__BeanDefinitions`). That code is not ours to style, and its
+// `__` names fail our TypeName rule, so skip Checkstyle on the AOT source sets.
+// Detaching these also keeps the ordinary JVM `build` from triggering AOT.
+tasks.matching { it.name.startsWith("checkstyle") && it.name.contains("Aot") }
+    .configureEach { enabled = false }

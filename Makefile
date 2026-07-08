@@ -71,6 +71,14 @@ lint: ## Run Spotless + Checkstyle
 format: ## Auto-format with Spotless
 	$(GRADLE) spotlessApply
 
+.PHONY: native-rating
+native-rating: ## Build the rating-engine as a GraalVM native executable (needs GraalVM; ~2 min)
+	$(GRADLE) :rating-engine:nativeCompile
+	@echo ""
+	@echo "Native binary: rating-engine/build/native/nativeCompile/rating-engine"
+	@echo "Run it: ./rating-engine/build/native/nativeCompile/rating-engine"
+	@echo "See docs/adr/0012-graalvm-native-images.md"
+
 ## ---------------------------------------------------------------------------
 ## Data / demo / benchmarks  (filled in by later phases)
 ## ---------------------------------------------------------------------------
