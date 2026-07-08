@@ -1,0 +1,103 @@
+spring:
+  application:
+    name: rating-engine
+
+  kafka:
+    bootstrap-servers: localhost:29092
+    consumer:
+      group-id: quotient-rating-engine
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # Aggregates are produced with exactly-once; read only committed records.
+      isolation-level: read_committed
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+
+server:
+  port: 8084
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+  metrics:
+    tags:
+      application: rating-engine
+
+# ---------------------------------------------------------------------------
+# Pricing. Token meters priced per 1,000 tokens; requests/storage per unit.
+# Amounts are minor units (cents), currency AUD.
+# ---------------------------------------------------------------------------
+quotient:
+  rating:
+    input-topic: usage.aggregates.v1
+    output-topic: billing.charges.v1
+    tenant-plans:
+      "[11111111-1111-1111-1111-111111111111]": standard
+      "[22222222-2222-2222-2222-222222222222]": growth
+      "[33333333-3333-3333-3333-333333333333]": standard
+    plans:
+      standard:
+        version: 1
+        meters:
+          "[llm.tokens.input]":
+            type: TIERED
+            tiers:
+              - up-to: 1000000
+                unit-price-minor: 30
+                per-units: 1000
+              - unit-price-minor: 20
+                per-units: 1000
+          "[llm.tokens.output]":
+            type: TIERED
+            tiers:
+              - up-to: 1000000
+                unit-price-minor: 60
+                per-units: 1000
+              - unit-price-minor: 45
+                per-units: 1000
+          "[llm.requests]":
+            type: FLAT
+            tiers:
+              - unit-price-minor: 5
+                per-units: 1
+          "[storage.gb]":
+            type: FLAT
+            tiers:
+              - unit-price-minor: 10
+                per-units: 1
+      growth:
+        version: 1
+        meters:
+          "[llm.tokens.input]":
+            type: VOLUME
+            tiers:
+              - up-to: 1000000
+                unit-price-minor: 25
+                per-units: 1000
+              - unit-price-minor: 15
+                per-units: 1000
+          "[llm.tokens.output]":
+            type: VOLUME
+            tiers:
+              - up-to: 1000000
+                unit-price-minor: 50
+                per-units: 1000
+              - unit-price-minor: 35
+                per-units: 1000
+          "[llm.requests]":
+            type: FLAT
+            tiers:
+              - unit-price-minor: 4
+                per-units: 1
+          "[storage.gb]":
+            type: FLAT
+            tiers:
+              - unit-price-minor: 8
+                per-units: 1
