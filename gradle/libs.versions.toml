@@ -33,6 +33,9 @@ spotless-gradle = { module = "com.diffplug.spotless:spotless-plugin-gradle", ver
 errorprone-gradle = { module = "net.ltgt.gradle:gradle-errorprone-plugin", version.ref = "errorpronePlugin" }
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
 
+# --- Spring Boot BOM (for the root aggregate-coverage report to resolve versions) ---
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+
 # --- Spring Boot BOM-managed (no version here) ---
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter" }
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }

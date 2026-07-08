@@ -9,6 +9,11 @@ plugins {
 }
 
 dependencies {
+    // The aggregate report resolves each module's runtime classpath from the
+    // ROOT, which has no Spring dependency management — so BOM-managed deps would
+    // resolve with an empty version. Import the Spring Boot BOM here to supply them.
+    jacocoAggregation(platform(libs.spring.boot.bom))
+
     // Collect coverage from every application/library module into one report.
     jacocoAggregation(project(":quotient-common"))
     jacocoAggregation(project(":ingest-gateway-reactive"))

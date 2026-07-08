@@ -1,5 +1,9 @@
 # Quotient
 
+[![CI](https://github.com/marciomarinho/quotient/actions/workflows/ci.yml/badge.svg)](https://github.com/marciomarinho/quotient/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Java](https://img.shields.io/badge/Java-25-orange.svg)](https://adoptium.net/)
+
 **Token-level usage metering, rating, and ledger-grade billing — built for scale, runnable on a laptop.**
 
 Quotient is a portfolio-grade demonstration of production monetization
