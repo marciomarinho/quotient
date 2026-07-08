@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+<!--
+  Style suppressions. Production code stays strict; test code is allowed the
+  conventions that make tests readable:
+    * underscored method names (method_scenario_expectation), which Google style
+      itself permits for test methods;
+    * underscored constant names for ArchUnit rule fields (static final ArchRule
+      some_readable_rule_name), which is the idiomatic ArchUnit style.
+-->
+<suppressions>
+  <suppress checks="MethodName" files="[\\/]src[\\/](test|integrationTest)[\\/]"/>
+  <suppress checks="ConstantName" files="[\\/]src[\\/](test|integrationTest)[\\/]"/>
+</suppressions>

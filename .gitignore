@@ -30,3 +30,7 @@ loadtest/results/*.png
 
 # JFR recordings
 *.jfr
+
+# jqwik failure-sample database
+.jqwik-database
+**/.jqwik-database

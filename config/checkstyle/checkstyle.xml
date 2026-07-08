@@ -20,6 +20,12 @@
     <property name="eachLine" value="true"/>
   </module>
 
+  <!-- Per-path rule relaxations (e.g. underscored test method names). -->
+  <module name="SuppressionFilter">
+    <property name="file" value="${config_loc}/suppressions.xml"/>
+    <property name="optional" value="true"/>
+  </module>
+
   <module name="LineLength">
     <property name="max" value="120"/>
     <property name="ignorePattern" value="^package.*|^import.*|href|https?://"/>
