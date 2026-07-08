@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.spring.kafka)
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)
+    implementation(libs.springdoc.webmvc)
     implementation(libs.micrometer.registry.prometheus)
     runtimeOnly(libs.postgresql)
 
