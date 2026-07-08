@@ -16,8 +16,10 @@ threads** (Java 25, Project Loom).
 
 Everything runs locally with `make up` — no cloud dependencies.
 
-> **Status:** under active construction. Phase 1 (scaffold + infrastructure) is
-> in place; see `quotient-project-plan.md` §16 for the delivery roadmap.
+The whole pipeline is live: `make demo` fires ~10k events across three tenants
+(with deliberate duplicates), aggregates → rates → posts to the ledger, generates
+invoices via a transactional outbox, and asserts duplicates weren't billed and the
+ledger balances — using real Keycloak OAuth2 tokens.
 
 ## Architecture
 
@@ -28,7 +30,7 @@ usage events (HTTP) ─▶ ingest-gateway ─▶ Kafka ─▶ meter-aggregator �
                                                                                                 + invoicing)
 ```
 
-Full C4 + sequence diagrams: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) *(Phase 11)*.
+Full C4 + sequence diagrams: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Quickstart (90 seconds)
 
@@ -81,5 +83,27 @@ docs/                     PROBLEM, ARCHITECTURE, MULTI_TENANCY, SECURITY, LEDGER
 - **Honest performance engineering:** reproducible k6 benchmark of reactive vs
   virtual-threads gateways with real local numbers.
 
-Docs, ADRs, dashboards, and benchmark results are added through the delivery
-phases. License: Apache-2.0.
+## Documentation
+
+| Doc | What it covers |
+|---|---|
+| [PROBLEM.md](docs/PROBLEM.md) | The consumption-billing problem and why the naive approach collapses |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | C4 (context/container/component) + sequence diagrams |
+| [MULTI_TENANCY.md](docs/MULTI_TENANCY.md) | Silo/bridge/pool decision matrix; the layered isolation implemented |
+| [LEDGER_DESIGN.md](docs/LEDGER_DESIGN.md) | Double-entry design, three-layer invariants, invoicing, outbox |
+| [EXACTLY_ONCE.md](docs/EXACTLY_ONCE.md) | Idempotency + exactly-once across the pipeline |
+| [SECURITY.md](docs/SECURITY.md) | Dual-auth model, Keycloak tenant mapping, threat model |
+| [OBSERVABILITY.md](docs/OBSERVABILITY.md) | Metrics, structured logs, tracing to Tempo (and its honest limit) |
+| [BENCHMARK.md](docs/BENCHMARK.md) | WebFlux vs virtual threads — method, real numbers, analysis |
+| [adr/](docs/adr/) | Architecture Decision Records (MADR) |
+
+## Verification
+
+- `make test` / `make itest` — unit + Testcontainers integration tests (Kafka,
+  Postgres, Redis) across all modules.
+- `make coverage` — aggregate JaCoCo HTML report.
+- `make lint` — Spotless + Checkstyle.
+- `make ledger-verify` — recompute all balances from entries and assert they match.
+- CI (`.github/workflows/ci.yml`) runs lint + tests + coverage on every push/PR.
+
+License: Apache-2.0.
