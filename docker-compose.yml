@@ -1,0 +1,195 @@
+# Quotient local environment — infrastructure only (Phase 1).
+# Application services (gateways, aggregator, rating, ledger) are added as
+# containerized services in later phases; for now they run from the IDE/Gradle
+# against this stack. Everything here is provisioned as code — no manual clicks.
+#
+#   make up      -> start this stack
+#   make down    -> stop and remove (keep volumes)
+#   make down-v  -> stop and remove volumes too (clean slate)
+#
+# Host-facing ports are chosen to avoid collisions and are documented in README.
+
+name: quotient
+
+services:
+  # --------------------------------------------------------------------------
+  # Kafka — single-node KRaft (no ZooKeeper). Two listeners: in-network
+  # (kafka:9092) for containers, and host (localhost:29092) for local apps.
+  # --------------------------------------------------------------------------
+  kafka:
+    image: apache/kafka:3.9.0
+    hostname: kafka
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      CLUSTER_ID: 5L6g3nShT-eMCtK--X86sw
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+
+  # One-shot topic creator: declares the pipeline topics with tenant-friendly
+  # partition counts, then exits. Idempotent (--if-not-exists).
+  kafka-init:
+    image: apache/kafka:3.9.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        BS=kafka:9092
+        # Each --config carries exactly one key=val; 7-day retention on all topics.
+        create() { /opt/kafka/bin/kafka-topics.sh --bootstrap-server $$BS --create --if-not-exists --topic "$$1" --partitions "$$2" --replication-factor 1 --config cleanup.policy=delete --config retention.ms=604800000; }
+        create usage.events.v1      6
+        create usage.aggregates.v1  6
+        create billing.charges.v1   6
+        create invoice.created.v1   3
+        echo "topics ready:"; /opt/kafka/bin/kafka-topics.sh --bootstrap-server $$BS --list
+    restart: "no"
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: quotient-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      DYNAMIC_CONFIG_ENABLED: "true"
+
+  # --------------------------------------------------------------------------
+  # Postgres 17 — ledger + tenant config. RLS is enabled by Flyway migrations
+  # (Phase 3), not here.
+  # --------------------------------------------------------------------------
+  postgres:
+    image: postgres:17
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: quotient
+      POSTGRES_USER: quotient
+      POSTGRES_PASSWORD: quotient
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quotient -d quotient"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  # --------------------------------------------------------------------------
+  # Redis 7 — idempotency dedup store (SET NX EX) for the ingestion gateways.
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # --------------------------------------------------------------------------
+  # Toxiproxy — fault injection for the benchmark "slow downstream" scenario
+  # (inject latency on Kafka publish). Controlled from the benchmark harness.
+  # --------------------------------------------------------------------------
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.11.0
+    ports:
+      - "8474:8474"   # control API
+      - "26379:26379" # example proxied port (wired by bench harness)
+
+  # --------------------------------------------------------------------------
+  # Observability: Prometheus + Tempo + OTel Collector + Grafana.
+  # All datasources/dashboards provisioned from infra/ as code.
+  # --------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.enable-remote-write-receiver"
+      - "--enable-feature=exemplar-storage"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  tempo:
+    image: grafana/tempo:2.7.0
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    ports:
+      - "3200:3200"   # tempo query
+    volumes:
+      - ./infra/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.117.0
+    command: ["--config=/etc/otel/config.yaml"]
+    depends_on:
+      - tempo
+      - prometheus
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ./infra/otel/otel-collector-config.yaml:/etc/otel/config.yaml:ro
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    depends_on:
+      - prometheus
+      - tempo
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_FEATURE_TOGGLES_ENABLE: traceToMetrics
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  # --------------------------------------------------------------------------
+  # Keycloak — realm-as-code (imported at startup). OAuth2/OIDC for the
+  # ledger-service query/admin API (Phase 9a). Dev mode, in-memory H2.
+  # --------------------------------------------------------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    command: ["start-dev", "--import-realm"]
+    ports:
+      - "8081:8080"
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./infra/keycloak:/opt/keycloak/data/import:ro
+
+volumes:
+  kafka-data:
+  postgres-data:
+  tempo-data:

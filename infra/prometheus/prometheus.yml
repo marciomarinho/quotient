@@ -1,0 +1,30 @@
+# Prometheus scrape config. App services expose Micrometer metrics at
+# /actuator/prometheus. Targets use host.docker.internal so Prometheus (in a
+# container) can reach services running on the host during development; once the
+# apps are containerized (later phase) these become in-network hostnames.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8889"]
+
+  # Application services (RED metrics, per-tenant counters, exemplars).
+  # Uncommented/extended as each service comes online.
+  - job_name: quotient-apps
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - "host.docker.internal:8080"  # ingest-gateway-vthreads
+          - "host.docker.internal:8082"  # ingest-gateway-reactive
+          - "host.docker.internal:8083"  # meter-aggregator
+          - "host.docker.internal:8084"  # rating-engine
+          - "host.docker.internal:8086"  # ledger-service
+        labels:
+          platform: quotient

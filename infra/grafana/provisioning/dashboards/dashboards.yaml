@@ -1,0 +1,14 @@
+# Grafana dashboard provider: load JSON dashboards from disk (as code).
+# Dashboard JSON files land in infra/grafana/dashboards/ in Phase 9.
+apiVersion: 1
+
+providers:
+  - name: quotient
+    orgId: 1
+    folder: Quotient
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

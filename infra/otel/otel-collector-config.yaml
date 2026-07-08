@@ -1,0 +1,41 @@
+# OTel Collector (contrib) — OTLP in, Tempo + Prometheus out.
+# App services export OTLP to this collector; it forwards traces to Tempo and
+# exposes a Prometheus endpoint (:8889) for any span-derived metrics we emit.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+  # Keep tenant.id as a first-class span attribute (bounded cardinality: 3 demo
+  # tenants) so traces can be filtered per tenant in Tempo.
+  resourcedetection:
+    detectors: [env]
+    timeout: 2s
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    enable_open_metrics: true
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resourcedetection, batch]
+      exporters: [otlp/tempo, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]

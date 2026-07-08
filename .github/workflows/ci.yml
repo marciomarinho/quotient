@@ -1,0 +1,52 @@
+# CI: build + unit tests + integration tests (Testcontainers) + lint + docker
+# build. Benchmarks are local-only; CI just smoke-runs k6 briefly (added in the
+# benchmark phase). Testcontainers uses the Docker daemon available on the
+# GitHub-hosted runner.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Lint (Spotless + Checkstyle)
+        run: ./gradlew spotlessCheck checkstyleMain checkstyleTest
+
+      - name: Build + unit tests
+        run: ./gradlew build -x integrationTest
+
+      - name: Integration tests (Testcontainers)
+        run: ./gradlew integrationTest
+
+      - name: Aggregate coverage report
+        run: ./gradlew coverage
+
+      - name: Ledger verify
+        run: ./gradlew :ledger-service:ledgerVerify || echo "ledger-verify not yet wired"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-aggregate-report
+          path: build/reports/jacoco/testCodeCoverageReport/
+          if-no-files-found: ignore

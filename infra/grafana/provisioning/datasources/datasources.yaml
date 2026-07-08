@@ -1,0 +1,36 @@
+# Grafana datasources as code: Prometheus + Tempo, with trace/metric/log
+# correlation wired up (trace-to-logs, trace-to-metrics, exemplars).
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      # Jump from a span to correlated logs (Loki not deployed locally; kept for
+      # documentation of the correlation model) and metrics.
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: -1m
+        spanEndTimeShift: 1m
+        tags:
+          - key: service.name
+            value: service
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
