@@ -103,6 +103,25 @@ public class JdbcLedgerRepository implements LedgerRepository {
     return PostOutcome.POSTED;
   }
 
+  @Override
+  public void recordBilledCharge(io.github.marciomarinho.quotient.common.event.Charge charge) {
+    jdbc.sql(
+            "INSERT INTO billed_charge (charge_id, tenant_id, meter_code, window_start, "
+                + "window_end, quantity_billed, amount_minor, currency, plan_version) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (charge_id) DO NOTHING")
+        .param(charge.chargeId())
+        .param(charge.tenantId().value())
+        .param(charge.meterCode())
+        .param(
+            java.time.OffsetDateTime.ofInstant(charge.window().start(), java.time.ZoneOffset.UTC))
+        .param(java.time.OffsetDateTime.ofInstant(charge.window().end(), java.time.ZoneOffset.UTC))
+        .param(charge.quantityBilled())
+        .param(charge.amount().amountMinor())
+        .param(charge.amount().currency().name())
+        .param(charge.planVersion())
+        .update();
+  }
+
   /** Balances are debit-positive: DEBIT adds, CREDIT subtracts. */
   private static long signedDelta(PostingLine line) {
     long amount = line.amount().amountMinor();

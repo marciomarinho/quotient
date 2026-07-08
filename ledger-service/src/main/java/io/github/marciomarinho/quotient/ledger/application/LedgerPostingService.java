@@ -41,7 +41,7 @@ public class LedgerPostingService {
     ConcurrencyFailureException last = null;
     for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        return writer.postOnce(plan);
+        return writer.postChargeOnce(charge, plan);
       } catch (ConcurrencyFailureException e) {
         last = e;
         LOG.warn(

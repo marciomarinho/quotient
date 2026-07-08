@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.kafka.ConfluentKafkaContainer;
 
 /**
  * Base for ledger integration tests. Starts a single Postgres 17 container for the whole suite and
@@ -39,8 +40,12 @@ public abstract class AbstractLedgerIntegrationTest {
           .withUsername("owner")
           .withPassword("owner");
 
+  static final ConfluentKafkaContainer KAFKA =
+      new ConfluentKafkaContainer("confluentinc/cp-kafka:7.8.0");
+
   static {
     POSTGRES.start();
+    KAFKA.start();
   }
 
   /**
@@ -55,7 +60,7 @@ public abstract class AbstractLedgerIntegrationTest {
         var statement = connection.createStatement()) {
       statement.execute(
           "TRUNCATE ledger_entry, ledger_transaction, ledger_account, account_balance, "
-              + "invoice_line, invoice, outbox RESTART IDENTITY CASCADE");
+              + "billed_charge, invoice_line, invoice, outbox RESTART IDENTITY CASCADE");
     }
   }
 
@@ -69,6 +74,8 @@ public abstract class AbstractLedgerIntegrationTest {
     registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
     registry.add("spring.flyway.user", POSTGRES::getUsername);
     registry.add("spring.flyway.password", POSTGRES::getPassword);
+    // The context includes the charge consumer + outbox relay.
+    registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
   }
 
   /** A charge for {@code tenant} with the given net revenue, in a stable window. */

@@ -118,6 +118,14 @@ jacoco {
     toolVersion = jacocoVersion
 }
 
+// For Spring Boot application modules, produce only the executable bootJar (not
+// the extra "-plain" library jar), so Dockerfiles can COPY build/libs/*.jar
+// unambiguously.
+plugins.withId("org.springframework.boot") {
+    tasks.named<Jar>("jar") { enabled = false }
+    tasks.matching { it.name == "sourcesJar" }.configureEach { enabled = false }
+}
+
 tasks.named("check") {
     dependsOn(integrationTestTask)
 }

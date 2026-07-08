@@ -4,6 +4,7 @@ import io.github.marciomarinho.quotient.ledger.domain.DoubleEntryPosting;
 import io.github.marciomarinho.quotient.ledger.domain.GstPolicy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Wires the framework-free ledger domain services as Spring beans. Keeping this in one small
@@ -11,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
  * (constructor injection only, no {@code @Component} on domain types).
  */
 @Configuration
+@EnableScheduling
 public class LedgerConfiguration {
 
   @Bean

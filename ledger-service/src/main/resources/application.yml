@@ -23,6 +23,21 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  kafka:
+    bootstrap-servers: localhost:29092
+    consumer:
+      group-id: quotient-ledger-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      isolation-level: read_committed
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+
 server:
   port: 8086
 
@@ -37,6 +52,13 @@ management:
   metrics:
     tags:
       application: ledger-service
+
+quotient:
+  ledger:
+    charges-topic: billing.charges.v1
+    invoice-created-topic: invoice.created.v1
+    # 10% GST is applied in the domain; kept here for documentation only.
+    gst-rate: "0.10"
 
 # Set to true (with --spring.main.web-application-type=none) to run the
 # ledger-verify task; the process exits non-zero if balances have drifted.

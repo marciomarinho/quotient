@@ -189,6 +189,64 @@ services:
     volumes:
       - ./infra/keycloak:/opt/keycloak/data/import:ro
 
+  # --------------------------------------------------------------------------
+  # Application services (profile "apps"): `make demo` / `docker compose
+  # --profile apps up`. They join the same network and reach infra by service
+  # name. `make up` (infra only) does not start these.
+  # --------------------------------------------------------------------------
+  ingest-gateway-vthreads:
+    profiles: ["apps"]
+    build: ./ingest-gateway-vthreads
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATA_REDIS_HOST: redis
+      # Generous limit for the demo's burst; the 429 behaviour is covered by tests.
+      QUOTIENT_INGEST_RATE_LIMIT_CAPACITY: "50000"
+      QUOTIENT_INGEST_RATE_LIMIT_REFILL_TOKENS: "50000"
+    ports:
+      - "18080:8080"
+
+  meter-aggregator:
+    profiles: ["apps"]
+    build: ./meter-aggregator
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Short windows so the demo doesn't wait a full minute.
+      QUOTIENT_AGGREGATOR_WINDOW_SIZE: 10s
+      QUOTIENT_AGGREGATOR_GRACE: 5s
+
+  rating-engine:
+    profiles: ["apps"]
+    build: ./rating-engine
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  ledger-service:
+    profiles: ["apps"]
+    build: ./ledger-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/quotient
+      SPRING_FLYWAY_URL: jdbc:postgresql://postgres:5432/quotient
+    ports:
+      - "8086:8086"
+
 volumes:
   kafka-data:
   postgres-data:

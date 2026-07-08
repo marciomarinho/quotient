@@ -1,5 +1,6 @@
 package io.github.marciomarinho.quotient.ledger.application;
 
+import io.github.marciomarinho.quotient.common.event.Charge;
 import io.github.marciomarinho.quotient.ledger.domain.PostingPlan;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Isolation;
@@ -26,5 +27,19 @@ public class TransactionalLedgerWriter {
   @Transactional(isolation = Isolation.SERIALIZABLE)
   public PostOutcome postOnce(PostingPlan plan) {
     return repository.post(plan);
+  }
+
+  /**
+   * Post a charge and record its structured detail in the same SERIALIZABLE transaction, so the
+   * double-entry postings and the billed-charge record used for invoicing can never diverge. Both
+   * are idempotent on the charge id.
+   */
+  @Transactional(isolation = Isolation.SERIALIZABLE)
+  public PostOutcome postChargeOnce(Charge charge, PostingPlan plan) {
+    PostOutcome outcome = repository.post(plan);
+    if (outcome == PostOutcome.POSTED) {
+      repository.recordBilledCharge(charge);
+    }
+    return outcome;
   }
 }

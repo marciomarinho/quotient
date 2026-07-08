@@ -1,5 +1,6 @@
 package io.github.marciomarinho.quotient.ledger.application;
 
+import io.github.marciomarinho.quotient.common.event.Charge;
 import io.github.marciomarinho.quotient.common.tenant.TenantId;
 import io.github.marciomarinho.quotient.ledger.domain.AccountBalance;
 import io.github.marciomarinho.quotient.ledger.domain.PostedTransaction;
@@ -27,6 +28,12 @@ public interface LedgerRepository {
    * same charge returns {@link PostOutcome#DUPLICATE} and changes nothing.
    */
   PostOutcome post(PostingPlan plan);
+
+  /**
+   * Record the structured charge (meter, window, quantity, amount) so invoices can be assembled
+   * from it. Idempotent on the charge id.
+   */
+  void recordBilledCharge(Charge charge);
 
   /** Materialized balances for the bound tenant's accounts. */
   List<AccountBalance> balances(TenantId tenantId);
