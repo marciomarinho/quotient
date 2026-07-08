@@ -211,6 +211,22 @@ services:
     ports:
       - "18080:8080"
 
+  ingest-gateway-reactive:
+    profiles: ["apps"]
+    build: ./ingest-gateway-reactive
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATA_REDIS_HOST: redis
+      QUOTIENT_INGEST_RATE_LIMIT_CAPACITY: "50000"
+      QUOTIENT_INGEST_RATE_LIMIT_REFILL_TOKENS: "50000"
+    ports:
+      - "18082:8082"
+
   meter-aggregator:
     profiles: ["apps"]
     build: ./meter-aggregator

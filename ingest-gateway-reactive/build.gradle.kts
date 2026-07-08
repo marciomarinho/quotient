@@ -18,6 +18,8 @@ dependencies {
     implementation(libs.spring.data.redis)
     implementation(libs.bucket4j.core)
     implementation(libs.argon2)
+    implementation(libs.caffeine)
+    implementation(libs.springdoc.webflux)
     implementation(libs.micrometer.registry.prometheus)
 
     testImplementation(libs.spring.boot.starter.test)
