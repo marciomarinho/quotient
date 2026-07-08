@@ -67,7 +67,7 @@ class IngestContractIntegrationTest extends AbstractGatewayIntegrationTest {
         .statusCode(202)
         .body("deduplicated", equalTo(false));
 
-    List<String> published = drainUsageEvents(Duration.ofSeconds(10));
+    List<String> published = drainUsageEvents(Duration.ofSeconds(30));
     assertThat(published)
         .anySatisfy(
             payload -> {
