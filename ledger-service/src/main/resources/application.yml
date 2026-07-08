@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: ledger-service
+
+  # Runtime connection uses the least-privilege quotient_app role so RLS applies.
+  datasource:
+    url: jdbc:postgresql://localhost:5432/quotient
+    username: quotient_app
+    password: quotient_app
+    hikari:
+      # quotient_app is created by a Flyway migration that runs first; do not
+      # eagerly open the pool before the app actually serves a request.
+      minimum-idle: 0
+
+  # Flyway runs as the schema owner (superuser) to create roles, tables, RLS.
+  flyway:
+    url: jdbc:postgresql://localhost:5432/quotient
+    user: quotient
+    password: quotient
+    locations: classpath:db/migration
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: 8086
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ledger-service
+
+# Set to true (with --spring.main.web-application-type=none) to run the
+# ledger-verify task; the process exits non-zero if balances have drifted.
+ledger:
+  verify:
+    enabled: false

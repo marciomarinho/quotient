@@ -32,3 +32,15 @@ dependencies {
     "integrationTestImplementation"(libs.testcontainers.postgresql)
     "integrationTestImplementation"(libs.testcontainers.kafka)
 }
+
+// `make ledger-verify` / CI: recompute every tenant's balances from raw entries
+// and assert they match the materialized balances. Runs the app in verify mode
+// against a live Postgres; exits non-zero on drift.
+tasks.register<JavaExec>("ledgerVerify") {
+    group = "verification"
+    description = "Recompute all ledger balances from entries and assert they match."
+    dependsOn(tasks.named("classes"))
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass = "io.github.marciomarinho.quotient.ledger.LedgerServiceApplication"
+    args("--ledger.verify.enabled=true", "--spring.main.web-application-type=none")
+}

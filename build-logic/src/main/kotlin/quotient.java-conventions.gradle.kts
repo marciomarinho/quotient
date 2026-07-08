@@ -67,6 +67,18 @@ val integrationTestTask = tasks.register<Test>("integrationTest") {
     classpath = integrationTest.runtimeClasspath
     shouldRunAfter(tasks.test)
     useJUnitPlatform()
+
+    // Testcontainers needs to find the Docker daemon. Docker Desktop uses a
+    // non-standard per-user socket and exposes a CLI-proxy socket that rejects
+    // /info with HTTP 400, which docker-java otherwise auto-selects. Point it at
+    // the standard socket path — a symlink to the real socket on macOS and the
+    // native socket on Linux CI — unless DOCKER_HOST is already set.
+    environment("DOCKER_HOST", System.getenv("DOCKER_HOST") ?: "unix:///var/run/docker.sock")
+    // docker-java's default API version is older than the minimum a recent Docker
+    // Engine accepts, which makes /info return HTTP 400. It reads the version from
+    // the `api.version` system property (not the DOCKER_API_VERSION env var), so
+    // pin a version within the daemon's supported range (Docker 25+/CI: >= 1.44).
+    systemProperty("api.version", System.getenv("DOCKER_API_VERSION") ?: "1.44")
 }
 
 // ---------------------------------------------------------------------------
@@ -85,7 +97,9 @@ tasks.withType<Test>().configureEach {
 
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
-    options.compilerArgs.addAll(listOf("-parameters", "-Xlint:all,-processing", "-Werror"))
+    // -serial: we never Java-serialize our exceptions, so serialVersionUID noise
+    // is not worth -Werror failing the build.
+    options.compilerArgs.addAll(listOf("-parameters", "-Xlint:all,-processing,-serial", "-Werror"))
 }
 
 dependencies {
