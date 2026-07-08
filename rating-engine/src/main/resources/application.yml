@@ -4,6 +4,11 @@ spring:
 
   kafka:
     bootstrap-servers: localhost:29092
+    # Propagate + continue the trace across the pipeline via Kafka headers.
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
     consumer:
       group-id: quotient-rating-engine
       auto-offset-reset: earliest
@@ -29,6 +34,17 @@ management:
   metrics:
     tags:
       application: rating-engine
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${QUOTIENT_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+logging:
+  structured:
+    format:
+      console: ecs
 
 # ---------------------------------------------------------------------------
 # Pricing. Token meters priced per 1,000 tokens; requests/storage per unit.

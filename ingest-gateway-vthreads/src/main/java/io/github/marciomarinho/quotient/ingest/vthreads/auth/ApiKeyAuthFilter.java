@@ -40,9 +40,11 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
       return;
     }
     TenantContext.set(tenant.get());
+    org.slf4j.MDC.put("tenant.id", tenant.get().asString());
     try {
       chain.doFilter(request, response);
     } finally {
+      org.slf4j.MDC.remove("tenant.id");
       TenantContext.clear();
     }
   }

@@ -28,10 +28,15 @@ public class LedgerPostingService {
 
   private final TransactionalLedgerWriter writer;
   private final DoubleEntryPosting posting;
+  private final io.micrometer.core.instrument.MeterRegistry meterRegistry;
 
-  public LedgerPostingService(TransactionalLedgerWriter writer, DoubleEntryPosting posting) {
+  public LedgerPostingService(
+      TransactionalLedgerWriter writer,
+      DoubleEntryPosting posting,
+      io.micrometer.core.instrument.MeterRegistry meterRegistry) {
     this.writer = writer;
     this.posting = posting;
+    this.meterRegistry = meterRegistry;
   }
 
   /** Post a charge, retrying on serialization failures. Idempotent per charge id. */
@@ -41,7 +46,16 @@ public class LedgerPostingService {
     ConcurrencyFailureException last = null;
     for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        return writer.postChargeOnce(charge, plan);
+        PostOutcome outcome = writer.postChargeOnce(charge, plan);
+        meterRegistry
+            .counter(
+                "quotient.ledger.postings",
+                "tenant",
+                charge.tenantId().asString(),
+                "outcome",
+                outcome.name().toLowerCase(java.util.Locale.ROOT))
+            .increment();
+        return outcome;
       } catch (ConcurrencyFailureException e) {
         last = e;
         LOG.warn(

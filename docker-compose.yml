@@ -204,6 +204,7 @@ services:
         condition: service_healthy
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      QUOTIENT_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
       SPRING_DATA_REDIS_HOST: redis
       # Generous limit for the demo's burst; the 429 behaviour is covered by tests.
       QUOTIENT_INGEST_RATE_LIMIT_CAPACITY: "50000"
@@ -221,6 +222,7 @@ services:
         condition: service_healthy
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      QUOTIENT_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
       SPRING_DATA_REDIS_HOST: redis
       QUOTIENT_INGEST_RATE_LIMIT_CAPACITY: "50000"
       QUOTIENT_INGEST_RATE_LIMIT_REFILL_TOKENS: "50000"
@@ -235,6 +237,7 @@ services:
         condition: service_healthy
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      QUOTIENT_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
       # Short windows so the demo doesn't wait a full minute.
       QUOTIENT_AGGREGATOR_WINDOW_SIZE: 10s
       QUOTIENT_AGGREGATOR_GRACE: 5s
@@ -247,6 +250,7 @@ services:
         condition: service_healthy
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      QUOTIENT_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
 
   ledger-service:
     profiles: ["apps"]
@@ -258,6 +262,7 @@ services:
         condition: service_healthy
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      QUOTIENT_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/quotient
       SPRING_FLYWAY_URL: jdbc:postgresql://postgres:5432/quotient
     ports:

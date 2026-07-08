@@ -153,9 +153,32 @@ def main():
     print(f"  duplicates rejected (not billed): {total_deduped} deduplicated  -> {'OK' if total_deduped > 0 else 'FAIL'}")
     print(f"  ledger balanced (debits == credits): {'OK' if balanced else 'FAIL'}")
 
+    print_trace_link()
+
     ok = total_deduped > 0 and balanced and all(inv["totalMinor"] > 0 for inv in invoices.values())
     print(f"\nDEMO {'PASSED' if ok else 'FAILED'}\n")
     sys.exit(0 if ok else 1)
+
+
+def print_trace_link():
+    """Finale: surface one full pipeline trace in local Grafana/Tempo."""
+    print("\n== 6. Distributed trace ==")
+    try:
+        status, body = get(
+            "http://localhost:3200/api/search?limit=1&tags="
+            + "service.name%3Dingest-gateway-vthreads",
+            {},
+        )
+        traces = body.get("traces") or []
+        if traces:
+            trace_id = traces[0]["traceID"]
+            print(f"  one pipeline trace: {trace_id}")
+            print(f"  Tempo:   http://localhost:3200/api/traces/{trace_id}")
+            print(f"  Grafana: http://localhost:3001/explore  (Tempo datasource, query {trace_id})")
+        else:
+            print("  no traces indexed yet — open http://localhost:3001/explore (Tempo)")
+    except Exception:
+        print("  Tempo not reachable — open http://localhost:3001/explore (Tempo)")
 
 
 if __name__ == "__main__":

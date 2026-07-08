@@ -124,6 +124,14 @@ jacoco {
 plugins.withId("org.springframework.boot") {
     tasks.named<Jar>("jar") { enabled = false }
     tasks.matching { it.name == "sourcesJar" }.configureEach { enabled = false }
+
+    // Every service gets distributed tracing wired the same way: Micrometer
+    // Tracing bridged to OpenTelemetry, exported over OTLP to the collector.
+    // Versions are managed by each module's Spring Boot BOM.
+    dependencies {
+        "implementation"("io.micrometer:micrometer-tracing-bridge-otel")
+        "implementation"("io.opentelemetry:opentelemetry-exporter-otlp")
+    }
 }
 
 tasks.named("check") {

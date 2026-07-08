@@ -53,7 +53,14 @@ class UsageIngestionServiceTest {
             Duration.ofMinutes(5),
             Duration.ofHours(24),
             new RateLimit(2000, 2000, Duration.ofSeconds(1)));
-    service = new UsageIngestionService(rateLimiter, idempotency, publisher, clock, props);
+    service =
+        new UsageIngestionService(
+            rateLimiter,
+            idempotency,
+            publisher,
+            clock,
+            new io.micrometer.core.instrument.simple.SimpleMeterRegistry(),
+            props);
 
     when(rateLimiter.tryConsume(any(), anyLong())).thenReturn(true);
     when(idempotency.markIfFirstSeen(any(), any())).thenReturn(true);

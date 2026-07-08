@@ -10,6 +10,9 @@ spring:
 
   kafka:
     bootstrap-servers: localhost:29092
+    # Propagate W3C traceparent through Kafka headers so one trace spans the pipeline.
+    template:
+      observation-enabled: true
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -36,6 +39,21 @@ management:
   metrics:
     tags:
       application: ingest-gateway-vthreads
+    distribution:
+      # Emit exemplars linking latency buckets to example traces.
+      percentiles-histogram:
+        http.server.requests: true
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${QUOTIENT_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+logging:
+  structured:
+    format:
+      console: ecs
 
 springdoc:
   swagger-ui:

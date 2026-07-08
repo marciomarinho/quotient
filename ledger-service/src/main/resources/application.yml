@@ -25,6 +25,10 @@ spring:
 
   kafka:
     bootstrap-servers: localhost:29092
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
     consumer:
       group-id: quotient-ledger-service
       auto-offset-reset: earliest
@@ -52,6 +56,17 @@ management:
   metrics:
     tags:
       application: ledger-service
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${QUOTIENT_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+logging:
+  structured:
+    format:
+      console: ecs
 
 quotient:
   ledger:

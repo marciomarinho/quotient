@@ -10,6 +10,7 @@ import io.github.marciomarinho.quotient.ingest.vthreads.idempotency.IdempotencyS
 import io.github.marciomarinho.quotient.ingest.vthreads.publish.UsageEventPublisher;
 import io.github.marciomarinho.quotient.ingest.vthreads.ratelimit.RateLimitExceededException;
 import io.github.marciomarinho.quotient.ingest.vthreads.ratelimit.TenantRateLimiter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -33,6 +34,7 @@ public class UsageIngestionService {
   private final IdempotencyStore idempotency;
   private final UsageEventPublisher publisher;
   private final Clock clock;
+  private final MeterRegistry meterRegistry;
   private final Set<String> knownMeters;
   private final Duration maxFutureSkew;
 
@@ -41,11 +43,13 @@ public class UsageIngestionService {
       IdempotencyStore idempotency,
       UsageEventPublisher publisher,
       Clock clock,
+      MeterRegistry meterRegistry,
       IngestProperties properties) {
     this.rateLimiter = rateLimiter;
     this.idempotency = idempotency;
     this.publisher = publisher;
     this.clock = clock;
+    this.meterRegistry = meterRegistry;
     this.knownMeters = properties.meters() == null ? Set.of() : properties.meters();
     this.maxFutureSkew = properties.maxFutureSkew();
   }
@@ -66,6 +70,7 @@ public class UsageIngestionService {
   private IngestAcceptance ingestOne(TenantId tenant, UsageEventRequest request) {
     validate(request);
     if (!idempotency.markIfFirstSeen(tenant, request.idempotencyKey())) {
+      count(tenant, "deduplicated");
       return IngestAcceptance.deduplicated(request.idempotencyKey());
     }
     UsageEvent event =
@@ -84,7 +89,15 @@ public class UsageIngestionService {
       idempotency.release(tenant, request.idempotencyKey());
       throw e;
     }
+    count(tenant, "accepted");
     return IngestAcceptance.accepted(request.idempotencyKey());
+  }
+
+  /** Per-tenant ingest counter (bounded cardinality: the demo has 3 tenants). */
+  private void count(TenantId tenant, String outcome) {
+    meterRegistry
+        .counter("quotient.ingest.events", "tenant", tenant.asString(), "outcome", outcome)
+        .increment();
   }
 
   private void charge(TenantId tenant, long tokens) {
