@@ -28,34 +28,29 @@ ledger balances — using real Keycloak OAuth2 tokens.
 ## Architecture
 
 ```mermaid
-flowchart LR
-    client(["API client or SDK"]):::ext
-    operator(["Operator or admin"]):::ext
+flowchart TB
+    client(["API client / SDK"]):::ext
+    operator(["Operator / admin"]):::ext
+    gw["ingest-gateway"]:::svc
+    agg["meter-aggregator"]:::svc
+    rate["rating-engine"]:::svc
+    ledger["ledger-service"]:::svc
+    redis[("Redis")]:::infra
+    pg[("PostgreSQL")]:::infra
+    kc[("Keycloak")]:::infra
 
-    client -->|"usage events, HTTP and API key"| gw
-    operator -->|"queries and invoices, OAuth2 JWT"| ledger
-
-    subgraph pipeline ["core pipeline"]
-        direction LR
-        gw["ingest-gateway<br/>WebFlux and virtual threads<br/>auth, dedup, rate-limit"]
-        agg["meter-aggregator<br/>Kafka Streams<br/>windows, exactly-once"]
-        rate["rating-engine<br/>tiered, volume, flat"]
-        ledger["ledger-service<br/>double-entry, RLS<br/>invoicing, query API"]
-    end
-
-    gw -->|"usage.events.v1, key is tenantId"| agg
+    client -->|"usage events"| gw
+    gw -->|"usage.events.v1"| agg
     agg -->|"usage.aggregates.v1"| rate
     rate -->|"billing.charges.v1"| ledger
+    operator -->|"OAuth2 JWT"| ledger
 
-    redis[("Redis<br/>idempotency")]:::infra
-    pg[("PostgreSQL<br/>RLS")]:::infra
-    kc[("Keycloak<br/>OIDC")]:::infra
-
-    gw -.-> redis
-    ledger -.-> pg
-    ledger -.-> kc
+    gw -.->|"dedup"| redis
+    ledger -.->|"RLS"| pg
+    ledger -.->|"JWT verify"| kc
 
     classDef ext fill:#e8eef7,stroke:#4a6fa5,color:#1a2a3a;
+    classDef svc fill:#eef4ec,stroke:#4a8a5a,color:#16301f;
     classDef infra fill:#f2ecdc,stroke:#a5894a,color:#3a2f1a;
 ```
 

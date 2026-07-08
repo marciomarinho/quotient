@@ -172,19 +172,18 @@ sequenceDiagram
     autonumber
     participant Agg as Meter Aggregator
     participant Rate as Rating Engine
-    participant K as Kafka billing.charges.v1
+    participant K as Kafka
     participant Led as Ledger Service
     participant DB as PostgreSQL
     participant OB as Outbox Relay
-    participant Bus as Kafka invoice.created
 
     Agg->>Agg: window close, emit final reading
     Agg->>Rate: usage.aggregates.v1
     Rate->>Rate: rate the reading at planVersion, produce a Charge
     Rate->>Rate: compute deterministic txId as uuidV5
-    Rate->>K: publish Charge
+    Rate->>K: publish billing.charges.v1
 
-    Led->>K: consume Charge
+    K->>Led: consume billing.charges.v1
     Led->>Led: build balanced PostingPlan, Layer 2
     Led->>DB: BEGIN SERIALIZABLE, SET LOCAL app.tenant_id
     Led->>DB: INSERT ledger_transaction ON CONFLICT DO NOTHING
@@ -200,7 +199,7 @@ sequenceDiagram
     Led->>DB: link charges and INSERT outbox invoice.created
     DB-->>Led: COMMIT
     OB->>DB: poll outbox
-    OB->>Bus: publish invoice.created
+    OB->>K: publish invoice.created
     OB->>DB: mark outbox row published
 ```
 

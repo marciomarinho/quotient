@@ -8,48 +8,52 @@ why, and the ADRs in [adr/](adr/) for the decisions.
 ## C4 — System Context
 
 ```mermaid
-C4Context
-    title System Context — Quotient
-    Person(client, "API client / SDK", "Emits token-usage telemetry")
-    Person(operator, "Operator / tenant admin", "Queries balances, generates invoices")
-    System(quotient, "Quotient", "Usage metering, rating, ledger-grade billing")
-    System_Ext(keycloak, "Keycloak", "OIDC identity provider")
-    Rel(client, quotient, "Usage events", "HTTPS + API key")
-    Rel(operator, quotient, "Ledger queries, invoicing", "HTTPS + JWT")
-    Rel(quotient, keycloak, "Validates JWTs (JWKS)", "HTTPS")
-    Rel(operator, keycloak, "Obtains token", "OAuth2")
+flowchart TB
+    client(["API client or SDK<br/>emits usage telemetry"]):::person
+    operator(["Operator or tenant admin<br/>queries and invoicing"]):::person
+    quotient["Quotient<br/>usage metering, rating, ledger billing"]:::sys
+    keycloak[("Keycloak<br/>OIDC identity provider")]:::ext
+
+    client -->|"usage events, HTTPS and API key"| quotient
+    operator -->|"ledger queries, HTTPS and JWT"| quotient
+    operator -->|"obtain token, OAuth2"| keycloak
+    quotient -->|"validate JWT via JWKS"| keycloak
+
+    classDef person fill:#dbe5f3,stroke:#33517a,color:#12212f;
+    classDef sys fill:#1168bd,stroke:#0b4884,color:#ffffff;
+    classDef ext fill:#e6e6e6,stroke:#7a7a7a,color:#222;
 ```
 
 ## C4 — Containers
 
+Arrows between services are Kafka topics (versioned, keyed by `tenantId`);
+dotted arrows are datastore access.
+
 ```mermaid
-C4Container
-    title Containers — Quotient
-    Person(client, "API client")
-    Person(operator, "Operator")
+flowchart TB
+    client(["API client"]):::person
+    operator(["Operator"]):::person
+    gw["ingest-gateway<br/>Spring WebFlux or MVC + virtual threads"]:::svc
+    agg["meter-aggregator<br/>Kafka Streams, exactly-once v2"]:::svc
+    rate["rating-engine<br/>Spring Kafka"]:::svc
+    ledger["ledger-service<br/>Spring + JDBC and jOOQ"]:::svc
+    redis[("Redis 7<br/>idempotency dedup")]:::db
+    pg[("PostgreSQL 17<br/>Row-Level Security")]:::db
+    kc[("Keycloak<br/>OIDC")]:::ext
 
-    System_Boundary(q, "Quotient") {
-        Container(gateway, "ingest-gateway", "Spring WebFlux | MVC + virtual threads", "Auth, validate, dedup, rate-limit, publish")
-        ContainerQueue(kafka, "Kafka", "KRaft", "usage.events / usage.aggregates / billing.charges / invoice.created")
-        Container(aggregator, "meter-aggregator", "Kafka Streams", "Tumbling windows, exactly-once v2")
-        Container(rating, "rating-engine", "Spring Kafka", "Tiered/volume/flat pricing -> charges")
-        Container(ledger, "ledger-service", "Spring + jOOQ/JDBC", "Double-entry ledger, invoices, query API")
-        ContainerDb(postgres, "PostgreSQL 17", "Row-Level Security", "Ledger, invoices, outbox")
-        ContainerDb(redis, "Redis 7", "", "Idempotency dedup")
-    }
-    System_Ext(keycloak, "Keycloak", "OIDC")
+    client -->|"POST usage events, HTTPS"| gw
+    gw -->|"usage.events.v1"| agg
+    agg -->|"usage.aggregates.v1"| rate
+    rate -->|"billing.charges.v1"| ledger
+    operator -->|"queries and invoices, JWT"| ledger
+    gw -.->|"SET NX"| redis
+    ledger -.->|"post and query, SET LOCAL app.tenant_id"| pg
+    ledger -.->|"JWKS"| kc
 
-    Rel(client, gateway, "POST /v1/usage/events", "HTTPS")
-    Rel(operator, ledger, "GET balances / POST invoices", "HTTPS + JWT")
-    Rel(gateway, redis, "SET NX EX", "RESP")
-    Rel(gateway, kafka, "usage.events.v1 (key=tenantId)", "")
-    Rel(kafka, aggregator, "consume usage.events.v1", "")
-    Rel(aggregator, kafka, "usage.aggregates.v1", "")
-    Rel(kafka, rating, "consume usage.aggregates.v1", "")
-    Rel(rating, kafka, "billing.charges.v1", "")
-    Rel(kafka, ledger, "consume billing.charges.v1", "")
-    Rel(ledger, postgres, "post / query (SET LOCAL app.tenant_id)", "JDBC")
-    Rel(ledger, keycloak, "JWKS", "HTTPS")
+    classDef person fill:#dbe5f3,stroke:#33517a,color:#12212f;
+    classDef svc fill:#e4efe0,stroke:#3f7a4e,color:#16301f;
+    classDef db fill:#f4ecd6,stroke:#9a7f3f,color:#3a2f1a;
+    classDef ext fill:#e6e6e6,stroke:#7a7a7a,color:#222;
 ```
 
 ## C4 — Component (ledger-service)

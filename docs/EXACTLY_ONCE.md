@@ -135,29 +135,27 @@ sequenceDiagram
     participant C as Client
     participant GW as Ingest Gateway
     participant R as Redis
-    participant KE as Kafka usage.events.v1
-    participant AGG as Meter Aggregator Streams
-    participant KA as Kafka usage.aggregates.v1
+    participant K as Kafka
+    participant AGG as Meter Aggregator
     participant RT as Rating Engine
-    participant KC as Kafka billing.charges.v1
     participant LED as Ledger Service
 
     C->>GW: POST event with idempotencyKey k1
     GW->>R: SET k1 NX EX 86400
     R-->>GW: OK, reserved
-    GW->>KE: publish event and await ack
-    KE-->>GW: ack
+    GW->>K: publish usage.events.v1 and await ack
+    K-->>GW: ack
     GW-->>C: 202 accepted
 
-    AGG->>KE: consume within an EOS v2 transaction
-    AGG->>AGG: tumbling window 1m with 30s grace, suppress until window closes
-    AGG->>KA: emit one final reading, transaction commit
+    K->>AGG: consume usage.events.v1, EOS v2 transaction
+    AGG->>AGG: tumbling window 1m, 30s grace, suppress until close
+    AGG->>K: emit usage.aggregates.v1, transaction commit
 
-    RT->>KA: consume reading
-    RT->>RT: rate at planVersion, produce Charge with deterministic txId
-    RT->>KC: publish Charge, await ack, then commit offset
+    K->>RT: consume usage.aggregates.v1
+    RT->>RT: rate at planVersion, Charge with deterministic txId
+    RT->>K: publish billing.charges.v1, await ack, commit offset
 
-    LED->>KC: consume Charge
+    K->>LED: consume billing.charges.v1
     LED->>LED: INSERT ledger_transaction ON CONFLICT DO NOTHING
     LED->>LED: post balanced entries and billed_charge
 ```
